@@ -6,30 +6,43 @@
  */
 
 const express = require("express");
-const cors = require("cors");
-const path = require("path");
+const cors    = require("cors");
+const path    = require("path");
+const fs      = require("fs");
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// ─────────────────────────────────────────────
+//  Chemin du fichier de stockage persistant
+//  Les données survivent aux redémarrages !
+// ─────────────────────────────────────────────
+const DATA_DIR  = path.join(__dirname, "../data");
+const DATA_FILE = path.join(DATA_DIR, "positions.json");
+
+// Créer le dossier /data s'il n'existe pas
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+/** Lire les positions depuis le fichier JSON */
+function readData() {
+  try {
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  } catch {
+    return []; // Fichier absent ou vide → tableau vide
+  }
+}
+
+/** Écrire les positions dans le fichier JSON */
+function writeData(positions) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(positions, null, 2));
+}
 
 // ─────────────────────────────────────────────
 //  Middleware
 // ─────────────────────────────────────────────
-
-// Activer CORS pour les requêtes cross-origin
 app.use(cors());
-
-// Parser le JSON dans les corps de requêtes
 app.use(express.json());
-
-// Servir les fichiers statiques depuis /public
 app.use(express.static(path.join(__dirname, "../public")));
-
-// ─────────────────────────────────────────────
-//  Stockage en mémoire (tableau simple)
-//  Pour une app de production, utiliser une DB
-// ─────────────────────────────────────────────
-let positions = [];
 
 // ─────────────────────────────────────────────
 //  Routes
@@ -38,12 +51,10 @@ let positions = [];
 /**
  * POST /save
  * Enregistre une nouvelle position géographique.
- * Corps attendu : { latitude, longitude, accuracy, timestamp }
  */
 app.post("/save", (req, res) => {
   const { latitude, longitude, accuracy, timestamp } = req.body;
 
-  // Validation basique des données reçues
   if (latitude === undefined || longitude === undefined) {
     return res.status(400).json({
       success: false,
@@ -51,59 +62,53 @@ app.post("/save", (req, res) => {
     });
   }
 
-  // Construction de l'entrée
   const entry = {
-    id: Date.now(),                       // Identifiant unique basé sur le timestamp
-    latitude: parseFloat(latitude),
-    longitude: parseFloat(longitude),
-    accuracy: accuracy ? parseFloat(accuracy) : null,
-    timestamp: timestamp || Date.now(),   // Timestamp de la géolocalisation
-    dateReceived: new Date().toISOString(), // Moment où le serveur a reçu les données
-    userAgent: req.headers["user-agent"] || "Inconnu",
+    id:           Date.now(),
+    latitude:     parseFloat(latitude),
+    longitude:    parseFloat(longitude),
+    accuracy:     accuracy ? parseFloat(accuracy) : null,
+    timestamp:    timestamp || Date.now(),
+    dateReceived: new Date().toISOString(),
+    userAgent:    req.headers["user-agent"] || "Inconnu",
   };
 
-  // Stocker la position en tête de tableau (plus récent en premier)
+  // Lire → ajouter en tête → écrire (persistant)
+  const positions = readData();
   positions.unshift(entry);
+  writeData(positions);
 
-  console.log(`[${new Date().toLocaleString("fr-FR")}] Nouvelle position reçue :`, {
+  console.log(`[${new Date().toLocaleString("fr-FR")}] 📍 Nouvelle position :`, {
     lat: entry.latitude,
     lng: entry.longitude,
     accuracy: entry.accuracy,
   });
 
-  return res.json({
-    success: true,
-    message: "Position enregistrée avec succès.",
-    entry,
-  });
+  return res.json({ success: true, message: "Position enregistrée avec succès.", entry });
 });
 
 /**
  * GET /api/positions
- * Retourne la liste de toutes les positions (JSON).
- * Utilisé par le panel admin côté client.
+ * Retourne toutes les positions (JSON).
  */
 app.get("/api/positions", (req, res) => {
-  res.json({
-    success: true,
-    count: positions.length,
-    positions,
-  });
+  const positions = readData();
+  res.json({ success: true, count: positions.length, positions });
 });
 
 /**
  * DELETE /api/positions
- * Efface toutes les positions (utile pour les tests).
+ * Efface toutes les positions.
  */
 app.delete("/api/positions", (req, res) => {
+  const positions = readData();
   const count = positions.length;
-  positions = [];
+  writeData([]);
   res.json({ success: true, message: `${count} position(s) supprimée(s).` });
 });
 
 /**
  * GET /admin
- * Sert la page admin (admin.html dans /public).
+ * Sert la page admin.
  */
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/admin.html"));
@@ -113,9 +118,11 @@ app.get("/admin", (req, res) => {
 //  Démarrage du serveur
 // ─────────────────────────────────────────────
 app.listen(PORT, () => {
+  const saved = readData().length;
   console.log("════════════════════════════════════════════");
   console.log(`  GEO-DEMO — Serveur démarré`);
   console.log(`  Page publique : http://localhost:${PORT}`);
   console.log(`  Panel admin   : http://localhost:${PORT}/admin`);
+  console.log(`  Positions en base : ${saved}`);
   console.log("════════════════════════════════════════════");
 });
