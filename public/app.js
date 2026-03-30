@@ -65,6 +65,15 @@ async function onGeolocationSuccess(position) {
       body: JSON.stringify({ latitude, longitude, accuracy, timestamp }),
     });
 
+    // Vérifier que la réponse est bien du JSON (et non une page HTML d'erreur)
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      throw new Error(
+        `Le serveur Node.js ne répond pas correctement (statut ${response.status}). ` +
+        `Assurez-vous que le serveur est démarré avec <code>node server/server.js</code>.`
+      );
+    }
+
     const data = await response.json();
 
     if (data.success) {
@@ -75,7 +84,11 @@ async function onGeolocationSuccess(position) {
     }
   } catch (err) {
     // Erreur réseau ou côté serveur
-    showStatus("error", "🔌", `Erreur lors de l'envoi : ${err.message}`);
+    const isNetworkError = err instanceof TypeError && err.message.includes("fetch");
+    const msg = isNetworkError
+      ? "Impossible de joindre le serveur. Vérifiez qu'il est bien démarré (<code>node server/server.js</code>)."
+      : err.message;
+    showStatus("error", "🔌", msg);
     enableRetry();
   }
 }
