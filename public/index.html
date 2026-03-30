@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GéoDémo — Localisation</title>
+  <meta name="description" content="Démonstration éducative de l'API de géolocalisation du navigateur." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Layout page publique ── */
+    .page-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Badge "démo" ── */
+    .demo-badge {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+    }
+
+    /* ── Carte centrale ── */
+    .main-card {
+      width: 100%;
+      max-width: 460px;
+      padding: 48px 40px;
+      text-align: center;
+      animation: fadeInUp 0.6s ease both;
+    }
+
+    /* ── Icône animée ── */
+    .icon-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 32px;
+    }
+
+    .icon-wrapper .ring {
+      position: absolute;
+      inset: -12px;
+      border: 2px solid rgba(79,142,247,0.3);
+      border-radius: 50%;
+      animation: pulse-ring 2s ease-out infinite;
+    }
+
+    .icon-wrapper .icon-inner {
+      width: 88px;
+      height: 88px;
+      background: linear-gradient(135deg, rgba(79,142,247,0.2), rgba(124,58,237,0.2));
+      border: 1px solid rgba(79,142,247,0.4);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+    }
+
+    /* ── Textes ── */
+    .main-card h1 {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .main-card .subtitle {
+      color: var(--clr-text-muted);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-bottom: 36px;
+    }
+
+    /* ── Zone d'état (loader / succès / erreur) ── */
+    #status-area {
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    /* ── Message d'état ── */
+    .status-message {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 20px;
+      border-radius: var(--radius-sm);
+      text-align: left;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      width: 100%;
+      animation: fadeInUp 0.4s ease both;
+    }
+
+    .status-message.success {
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+      color: #86efac;
+    }
+
+    .status-message.error {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5;
+    }
+
+    .status-message.info {
+      background: rgba(79,142,247,0.1);
+      border: 1px solid rgba(79,142,247,0.25);
+      color: #93c5fd;
+    }
+
+    .status-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Coordonnées affichées ── */
+    .coords-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    .coord-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      text-align: left;
+    }
+
+    .coord-item .coord-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--clr-text-muted);
+      margin-bottom: 4px;
+    }
+
+    .coord-item .coord-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--clr-accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Note "respect vie privée" ── */
+    .privacy-note {
+      margin-top: 28px;
+      padding: 12px 16px;
+      background: rgba(245,158,11,0.07);
+      border: 1px solid rgba(245,158,11,0.2);
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      color: #fcd34d99;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Lien admin ── */
+    .admin-link {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      color: var(--clr-text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+    .admin-link:hover { color: var(--clr-text); }
+
+    @media (max-width: 480px) {
+      .main-card { padding: 32px 24px; }
+      .coords-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Badge démo (coin supérieur droit) -->
+  <div class="demo-badge">
+    <span class="badge badge-blue">🎓 Démo éducative</span>
+  </div>
+
+  <div class="page-wrapper">
+    <div class="card main-card">
+
+      <!-- Icône animée -->
+      <div class="icon-wrapper">
+        <div class="ring"></div>
+        <div class="icon-inner">📍</div>
+      </div>
+
+      <!-- Titre et description -->
+      <h1>Localisation</h1>
+      <p class="subtitle">
+        Cliquez sur le bouton ci-dessous pour continuer.<br />
+        Votre navigateur vous demandera l'autorisation d'accéder à votre position.
+      </p>
+
+      <!-- Zone d'état dynamique -->
+      <div id="status-area">
+        <!-- Le bouton principal -->
+        <button id="btn-continue" class="btn-primary" onclick="handleContinue()">
+          <span id="btn-icon">📍</span>
+          <span id="btn-text">Continuer</span>
+        </button>
+      </div>
+
+      <!-- Note respect vie privée -->
+      <div class="privacy-note">
+        🔒 Votre consentement est requis — la fenêtre du navigateur vous demandera la permission.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Lien vers l'admin -->
+  <a href="/admin" class="admin-link" title="Accéder au panel administrateur">
+    ⚙️ Panel Admin
+  </a>
+
+  <script src="app.js"></script>
+</body>
+</html>

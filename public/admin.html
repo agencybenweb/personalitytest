@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GéoDémo — Panel Admin</title>
+  <meta name="description" content="Panel d'administration pour visualiser les positions géolocalisées." />
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Leaflet.js — carte interactive open source -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* ── Layout Admin ── */
+    .admin-layout {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Header Admin ── */
+    .admin-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+
+    .admin-header-left h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+    }
+
+    .admin-header-left p {
+      color: var(--clr-text-muted);
+      font-size: 0.875rem;
+    }
+
+    .admin-header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ── Boutons ── */
+    .btn-sm {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid var(--clr-border);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--clr-text-muted);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--clr-text); }
+
+    .btn-danger {
+      background: rgba(239,68,68,0.1);
+      color: #fca5a5;
+      border-color: rgba(239,68,68,0.3);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+
+    /* ── Stats barre ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      padding: 20px 22px;
+      text-align: center;
+    }
+
+    .stat-card .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--clr-accent);
+      display: block;
+      line-height: 1;
+    }
+
+    .stat-card .stat-label {
+      font-size: 0.78rem;
+      color: var(--clr-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 6px;
+      display: block;
+    }
+
+    /* ── Carte Leaflet ── */
+    .map-section {
+      margin-bottom: 28px;
+    }
+
+    .map-section h2 {
+      font-size: 1rem;
+      color: var(--clr-text-muted);
+      margin-bottom: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #map {
+      height: 380px;
+      border-radius: var(--radius);
+      border: 1px solid var(--clr-border);
+      overflow: hidden;
+      background: #1a2236;
+    }
+
+    /* ── Tableau des positions ── */
+    .table-section h2 {
+      font-size: 1rem;
+      color: var(--clr-text-muted);
+      margin-bottom: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--clr-border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      white-space: nowrap;
+    }
+
+    thead {
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--clr-border);
+    }
+
+    thead th {
+      padding: 14px 18px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--clr-text-muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(79,142,247,0.04); cursor: pointer; }
+    tbody tr.highlighted { background: rgba(79,142,247,0.1); }
+
+    tbody td {
+      padding: 14px 18px;
+      color: var(--clr-text);
+      vertical-align: middle;
+    }
+
+    td.mono {
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: var(--clr-accent);
+    }
+
+    td.date-col { color: var(--clr-text-muted); font-size: 0.82rem; }
+
+    td.ua-col {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--clr-text-muted);
+      font-size: 0.78rem;
+    }
+
+    /* ── État vide ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--clr-text-muted);
+    }
+
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 16px; display: block; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ── Toast notification ── */
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--clr-bg-card2);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-sm);
+      padding: 14px 20px;
+      font-size: 0.875rem;
+      color: var(--clr-text);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 100;
+      pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Lien retour ── */
+    .back-link {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      font-size: 0.8rem;
+      color: var(--clr-text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--clr-text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .admin-header { flex-direction: column; align-items: flex-start; }
+      #map { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="admin-layout">
+
+    <!-- ── Header ── -->
+    <div class="admin-header">
+      <div class="admin-header-left">
+        <h1>⚙️ Panel Admin</h1>
+        <p>Positions géolocalisées enregistrées</p>
+      </div>
+      <div class="admin-header-right">
+        <span id="last-refresh" class="badge badge-blue">Chargement…</span>
+        <button class="btn-sm btn-ghost" onclick="loadPositions()">🔄 Actualiser</button>
+        <button class="btn-sm btn-danger" onclick="clearPositions()">🗑️ Effacer tout</button>
+      </div>
+    </div>
+
+    <!-- ── Stats ── -->
+    <div class="stats-bar">
+      <div class="card stat-card">
+        <span id="stat-total" class="stat-value">—</span>
+        <span class="stat-label">Positions totales</span>
+      </div>
+      <div class="card stat-card">
+        <span id="stat-accuracy" class="stat-value">—</span>
+        <span class="stat-label">Précision moyenne</span>
+      </div>
+      <div class="card stat-card">
+        <span id="stat-last" class="stat-value">—</span>
+        <span class="stat-label">Dernière entrée</span>
+      </div>
+    </div>
+
+    <!-- ── Carte Leaflet ── -->
+    <div class="map-section">
+      <h2>🗺️ Carte des positions</h2>
+      <div id="map"></div>
+    </div>
+
+    <!-- ── Tableau ── -->
+    <div class="table-section">
+      <h2>📋 Liste des entrées</h2>
+      <div class="card table-wrapper">
+        <div id="table-content">
+          <!-- généré dynamiquement par JS -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Lien retour -->
+  <a href="/" class="back-link">← Page publique</a>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script>
+    /**
+     * ============================================================
+     *  Admin JavaScript
+     *  Chargement des positions, carte Leaflet, tableau dynamique
+     * ============================================================
+     */
+
+    // ─────────────────────────────────────────────
+    //  Initialisation de la carte Leaflet
+    // ─────────────────────────────────────────────
+
+    // Créer la carte centrée sur la France (position par défaut)
+    const map = L.map("map", {
+      zoomControl: true,
+      attributionControl: true,
+    }).setView([46.8, 2.3], 5);
+
+    // Fond de carte sombre (CartoDB Dark)
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Icône personnalisée pour les marqueurs
+    const customIcon = L.divIcon({
+      html: `<div style="
+        width:28px; height:28px;
+        background: linear-gradient(135deg,#4f8ef7,#7c3aed);
+        border:2px solid #fff;
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        box-shadow: 0 4px 12px rgba(79,142,247,0.6);
+      "></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -30],
+    });
+
+    // Groupe de marqueurs pour le zoom automatique
+    const markersGroup = L.featureGroup().addTo(map);
+
+    // ─────────────────────────────────────────────
+    //  Chargement des positions depuis l'API
+    // ─────────────────────────────────────────────
+    async function loadPositions() {
+      try {
+        const res = await fetch("/api/positions");
+        const data = await res.json();
+
+        // Mettre à jour l'heure d'actualisation
+        document.getElementById("last-refresh").textContent =
+          `Actualisé à ${new Date().toLocaleTimeString("fr-FR")}`;
+
+        renderStats(data.positions);
+        renderMap(data.positions);
+        renderTable(data.positions);
+
+      } catch (err) {
+        showToast("❌ Impossible de charger les données.");
+        console.error("Erreur chargement positions :", err);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    //  Statistiques
+    // ─────────────────────────────────────────────
+    function renderStats(positions) {
+      document.getElementById("stat-total").textContent = positions.length;
+
+      if (positions.length === 0) {
+        document.getElementById("stat-accuracy").textContent = "—";
+        document.getElementById("stat-last").textContent = "—";
+        return;
+      }
+
+      // Précision moyenne (exclure les null)
+      const withAccuracy = positions.filter(p => p.accuracy !== null);
+      if (withAccuracy.length > 0) {
+        const avg = withAccuracy.reduce((s, p) => s + p.accuracy, 0) / withAccuracy.length;
+        document.getElementById("stat-accuracy").textContent = `${Math.round(avg)} m`;
+      } else {
+        document.getElementById("stat-accuracy").textContent = "N/A";
+      }
+
+      // Dernière entrée (la plus récente est en premier)
+      const last = positions[0];
+      const lastDate = new Date(last.dateReceived);
+      document.getElementById("stat-last").textContent =
+        lastDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    // ─────────────────────────────────────────────
+    //  Carte Leaflet
+    // ─────────────────────────────────────────────
+    function renderMap(positions) {
+      // Supprimer les anciens marqueurs
+      markersGroup.clearLayers();
+
+      if (positions.length === 0) {
+        map.setView([46.8, 2.3], 5);
+        return;
+      }
+
+      // Ajouter un marqueur pour chaque position
+      positions.forEach((pos, index) => {
+        const marker = L.marker([pos.latitude, pos.longitude], { icon: customIcon });
+
+        const popupHTML = `
+          <div style="font-family:Inter,sans-serif;min-width:200px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#1e293b;">
+              📍 Position #${positions.length - index}
+            </div>
+            <div style="font-size:0.85rem;color:#475569;line-height:1.6;">
+              <b>Lat :</b> ${pos.latitude.toFixed(6)}°<br/>
+              <b>Lng :</b> ${pos.longitude.toFixed(6)}°<br/>
+              <b>Précision :</b> ${pos.accuracy ? Math.round(pos.accuracy) + " m" : "N/A"}<br/>
+              <b>Date :</b> ${new Date(pos.dateReceived).toLocaleString("fr-FR")}
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupHTML);
+        markersGroup.addLayer(marker);
+      });
+
+      // Zoom automatique sur l'ensemble des marqueurs
+      map.fitBounds(markersGroup.getBounds().pad(0.3));
+    }
+
+    // ─────────────────────────────────────────────
+    //  Tableau des positions
+    // ─────────────────────────────────────────────
+    function renderTable(positions) {
+      const container = document.getElementById("table-content");
+
+      if (positions.length === 0) {
+        // État vide
+        container.innerHTML = `
+          <div class="empty-state">
+            <span class="empty-icon">📭</span>
+            <p>Aucune position enregistrée pour le moment.<br/>
+            Utilisez la <a href="/" style="color:var(--clr-accent)">page publique</a> pour en ajouter une.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Génération du tableau (les données sont déjà triées du plus récent au plus ancien)
+      const rows = positions.map((pos, index) => {
+        const date = new Date(pos.dateReceived).toLocaleString("fr-FR");
+        const accuracy = pos.accuracy !== null ? `${Math.round(pos.accuracy)} m` : "N/A";
+        const ua = pos.userAgent || "Inconnu";
+        const num = positions.length - index; // Numéro décroissant
+
+        return `
+          <tr onclick="highlightMarker(${pos.latitude}, ${pos.longitude})" title="Cliquer pour centrer la carte">
+            <td>
+              <span class="badge badge-blue">#${num}</span>
+            </td>
+            <td class="mono">${pos.latitude.toFixed(6)}°</td>
+            <td class="mono">${pos.longitude.toFixed(6)}°</td>
+            <td>
+              <span class="badge ${getAccuracyBadge(pos.accuracy)}">${accuracy}</span>
+            </td>
+            <td class="date-col">${date}</td>
+            <td class="ua-col" title="${ua}">${ua}</td>
+          </tr>
+        `;
+      }).join("");
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Précision</th>
+              <th>Date / Heure</th>
+              <th>User-Agent</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    /** Retourne la classe de badge selon la précision en mètres */
+    function getAccuracyBadge(accuracy) {
+      if (accuracy === null) return "badge-yellow";
+      if (accuracy < 50)  return "badge-green";
+      if (accuracy < 500) return "badge-yellow";
+      return "badge-red";
+    }
+
+    // ─────────────────────────────────────────────
+    //  Centrer la carte sur un point (depuis tableau)
+    // ─────────────────────────────────────────────
+    function highlightMarker(lat, lng) {
+      map.flyTo([lat, lng], 14, { duration: 1.2 });
+
+      // Ouvrir le popup le plus proche
+      markersGroup.eachLayer(layer => {
+        const latlng = layer.getLatLng();
+        if (Math.abs(latlng.lat - lat) < 0.0001 && Math.abs(latlng.lng - lng) < 0.0001) {
+          layer.openPopup();
+        }
+      });
+    }
+
+    // ─────────────────────────────────────────────
+    //  Effacer toutes les positions
+    // ─────────────────────────────────────────────
+    async function clearPositions() {
+      if (!confirm("Supprimer toutes les positions enregistrées ?")) return;
+
+      try {
+        const res = await fetch("/api/positions", { method: "DELETE" });
+        const data = await res.json();
+        showToast("✅ " + data.message);
+        loadPositions();
+      } catch (err) {
+        showToast("❌ Erreur lors de la suppression.");
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    //  Toast notification
+    // ─────────────────────────────────────────────
+    let toastTimer;
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 3000);
+    }
+
+    // ─────────────────────────────────────────────
+    //  Actualisation automatique toutes les 15 s
+    // ─────────────────────────────────────────────
+    loadPositions();
+    setInterval(loadPositions, 15000);
+  </script>
+</body>
+</html>
