@@ -437,8 +437,10 @@
         return;
       }
 
-      // Ajouter un marqueur pour chaque position
+      // Ajouter un marqueur pour chaque position (ignorer les simples "vues")
       positions.forEach((pos, index) => {
+        if (pos.type === "view") return;
+
         const marker = L.marker([pos.latitude, pos.longitude], { icon: customIcon });
 
         const mapsUrl = `https://www.google.com/maps?q=${pos.latitude},${pos.longitude}`;
@@ -466,8 +468,10 @@
         markersGroup.addLayer(marker);
       });
 
-      // Zoom automatique sur l'ensemble des marqueurs
-      map.fitBounds(markersGroup.getBounds().pad(0.3));
+      // Zoom automatique sur l'ensemble des marqueurs (si on a des positions GPS)
+      if (markersGroup.getLayers().length > 0) {
+        map.fitBounds(markersGroup.getBounds().pad(0.3));
+      }
     }
 
     // ─────────────────────────────────────────────
@@ -491,10 +495,26 @@
       // Génération du tableau (les données sont déjà triées du plus récent au plus ancien)
       const rows = positions.map((pos, index) => {
         const date = new Date(pos.dateReceived).toLocaleString("fr-FR");
-        const accuracy = pos.accuracy !== null ? `${Math.round(pos.accuracy)} m` : "N/A";
         const ua = pos.userAgent || "Inconnu";
         const num = positions.length - index; // Numéro décroissant
 
+        // SI c'est une simple visite (clic sur le bouton surprise)
+        if (pos.type === "view") {
+          return `
+            <tr>
+              <td><span class="badge badge-yellow">#${num}</span></td>
+              <td colspan="3" style="text-align:center; color:#f472b6; font-weight:600; font-style:italic;">
+                👀 Ouverture de la surprise sans GPS (vue)
+              </td>
+              <td class="date-col">${date}</td>
+              <td class="ua-col" title="${ua}">${ua}</td>
+              <td>—</td>
+            </tr>
+          `;
+        }
+
+        // SI c'est une vraie position
+        const accuracy = pos.accuracy !== null ? `${Math.round(pos.accuracy)} m` : "N/A";
         const mapsUrl = `https://www.google.com/maps?q=${pos.latitude},${pos.longitude}`;
 
         return `

